@@ -1,0 +1,72 @@
+package com.cocky.cockyserver.ai.client;
+
+import com.cocky.cockyserver.ai.config.AiProperties;
+import com.fasterxml.jackson.databind.JsonNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.RestClient;
+
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * OpenAI Chat Completions 얇은 래퍼(RestClient, 무의존).
+ *
+ * <p>시크릿(api-key)은 Authorization 헤더로만 전달하며 로그·프롬프트에 절대 싣지 않는다.
+ */
+public class OpenAiClient {
+
+    private static final Logger log = LoggerFactory.getLogger(OpenAiClient.class);
+
+    private final RestClient restClient;
+
+    public OpenAiClient(AiProperties props) {
+        AiProperties.OpenAi cfg = props.openai();
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofMillis(cfg.timeoutMs()));
+        factory.setReadTimeout(Duration.ofMillis(cfg.timeoutMs()));
+        this.restClient = RestClient.builder()
+                .baseUrl(cfg.baseUrl())
+                .defaultHeader("Authorization", "Bearer " + cfg.apiKey())
+                .requestFactory(factory)
+                .build();
+    }
+
+    /** JSON 객체 응답 강제(문제 생성 등 구조화 출력용). content(JSON 문자열) 반환. */
+    public String chatJson(String model, String systemPrompt, String userPrompt) {
+        return chat(model, systemPrompt, userPrompt, true);
+    }
+
+    /** 자유 텍스트 응답(총평·닉네임 등). */
+    public String chatText(String model, String systemPrompt, String userPrompt) {
+        return chat(model, systemPrompt, userPrompt, false);
+    }
+
+    private String chat(String model, String systemPrompt, String userPrompt, boolean jsonMode) {
+        Map<String, Object> body = new java.util.HashMap<>();
+        body.put("model", model);
+        body.put("messages", List.of(
+                Map.of("role", "system", "content", systemPrompt),
+                Map.of("role", "user", "content", userPrompt)
+        ));
+        if (jsonMode) {
+            body.put("response_format", Map.of("type", "json_object"));
+        }
+
+        JsonNode response = restClient.post()
+                .uri("/chat/completions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .body(JsonNode.class);
+
+        if (response == null || !response.has("choices") || response.get("choices").isEmpty()) {
+            log.warn("OpenAI 응답에 choices 없음");
+            throw new OpenAiException("OpenAI 응답 형식 오류");
+        }
+        return response.get("choices").get(0).path("message").path("content").asText();
+    }
+}
