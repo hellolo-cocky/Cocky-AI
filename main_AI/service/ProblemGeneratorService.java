@@ -7,11 +7,12 @@ import com.cocky.cockyserver.ai.dto.ExampleIo;
 import com.cocky.cockyserver.ai.dto.ExecRequest;
 import com.cocky.cockyserver.ai.dto.ExecResult;
 import com.cocky.cockyserver.ai.dto.GeneratedProblem;
+import com.cocky.cockyserver.ai.dto.GenerationItem;
+import com.cocky.cockyserver.ai.dto.GenerationOutcome;
 import com.cocky.cockyserver.ai.dto.GenerationRequest;
 import com.cocky.cockyserver.ai.dto.Language;
 import com.cocky.cockyserver.ai.exec.DemoExecutor;
 import com.cocky.cockyserver.ai.port.CodeExecutor;
-import com.cocky.cockyserver.ai.port.GenerationFailedException;
 import com.cocky.cockyserver.ai.port.ProblemGenerator;
 import com.cocky.cockyserver.ai.prompt.PromptTemplates;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -44,21 +45,27 @@ public class ProblemGeneratorService implements ProblemGenerator {
     }
 
     @Override
-    public List<GeneratedProblem> generate(GenerationRequest request) {
-        List<GeneratedProblem> result = new ArrayList<>();
+    public GenerationOutcome generate(GenerationRequest request) {
+        List<GenerationItem> items = new ArrayList<>();
         List<String> seenStatements = new ArrayList<>(request.pastStatements());
         for (Language lang : request.languages()) {
             for (Difficulty diff : request.difficulties()) {
-                GeneratedProblem problem = generateOne(request, lang, diff, seenStatements);
-                result.add(problem);
-                seenStatements.add(problem.statement());
+                GenerationItem item = generateOne(request, lang, diff, seenStatements);
+                items.add(item);
+                if (item.success()) {
+                    seenStatements.add(item.problem().statement());
+                }
             }
         }
-        return result;
+        return new GenerationOutcome(items);
     }
 
-    private GeneratedProblem generateOne(GenerationRequest req, Language lang, Difficulty diff,
-                                         List<String> seenStatements) {
+    /**
+     * 조합 하나 생성. 재시도 소진 시 예외 대신 실패 레코드 반환
+     * — 다른 조합의 성공분을 보존한다(백엔드 ai_generation_log 부분 저장 대응).
+     */
+    private GenerationItem generateOne(GenerationRequest req, Language lang, Difficulty diff,
+                                       List<String> seenStatements) {
         int maxRetries = props.generation().maxRetries();
         String lastReason = "알 수 없음";
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
@@ -83,14 +90,17 @@ public class ProblemGeneratorService implements ProblemGenerator {
                 }
 
                 recheckDifficulty(diff, parsed.statement);
-                return new GeneratedProblem(lang, diff, parsed.title, parsed.statement,
-                        confirmed, parsed.answerCode, req.roundSubtype());
+                GeneratedProblem problem = new GeneratedProblem(lang, diff, parsed.title,
+                        parsed.statement, confirmed, parsed.answerCode, req.roundSubtype());
+                return GenerationItem.success(problem, attempt);
             } catch (RuntimeException e) {
                 lastReason = e.getMessage();
                 log.warn("[{}/{}] 생성 시도 {} 실패: {}", lang, diff, attempt, e.getMessage());
             }
         }
-        throw new GenerationFailedException(lang, diff, lastReason);
+        log.error("[{}/{}] 재시도 {}회 소진 — 실패 조합으로 보고(성공분 보존): {}",
+                lang, diff, maxRetries, lastReason);
+        return GenerationItem.failure(lang, diff, maxRetries, lastReason);
     }
 
     /** 각 예제 input으로 정답 코드를 실행해 declared output과 일치하면 실행 출력으로 확정. */

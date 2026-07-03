@@ -35,7 +35,10 @@ class DemoFlowTest {
         var gen = new DemoProblemGenerator();
         var req = GenerationRequest.fullRound("동적 프로그래밍", "메모이제이션", List.of(), List.of());
 
-        List<GeneratedProblem> problems = gen.generate(req);
+        var outcome = gen.generate(req);
+        assertTrue(outcome.complete());
+        assertTrue(outcome.failures().isEmpty());
+        List<GeneratedProblem> problems = outcome.problems();
 
         assertEquals(9, problems.size());
         for (GeneratedProblem p : problems) {

@@ -9,7 +9,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * 코드 실행기 선택: ai.executor=demo 이거나 로컬 툴체인 부재면 DemoExecutor, 아니면 로컬.
+ * 코드 실행기 선택.
+ * - ai.executor=demo → DemoExecutor(명시적 선택).
+ * - 데모 모드(키 없음) + 툴체인 없음 → DemoExecutor 폴백(어차피 데모 생성기라 검증 미사용).
+ * - 실키 모드 + 툴체인 없음 → 부팅 실패. 검증이 조용히 꺼진 채 배포되는 것을 막는다
+ *   (예: Railway에 python/gcc 없음). 의도적으로 끄려면 AI_EXECUTOR=demo 명시.
  */
 @Configuration
 public class ExecutorConfig {
@@ -27,7 +31,13 @@ public class ExecutorConfig {
             log.info("코드 실행기: LocalProcessExecutor");
             return local;
         }
-        log.warn("로컬 툴체인(python/java/gcc) 없음 → DemoExecutor 폴백");
-        return new DemoExecutor();
+        if (props.demoMode()) {
+            log.warn("로컬 툴체인 없음 + 데모 모드 → DemoExecutor 폴백");
+            return new DemoExecutor();
+        }
+        throw new IllegalStateException(
+                "ai.executor=local이지만 로컬 툴체인(python/java/gcc)이 없어 정답 검증이 불가능합니다. "
+                        + "실키 모드에서 검증 없는 문제 생성은 금지 — 배포 환경에 툴체인을 설치하거나 "
+                        + "AI_EXECUTOR=demo를 명시하세요.");
     }
 }

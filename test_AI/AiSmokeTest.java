@@ -14,6 +14,7 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 실키 스모크. OPENAI_API_KEY 환경변수 있을 때만 실행. 실제 OpenAI + 로컬 검증.
@@ -44,7 +45,9 @@ class AiSmokeTest {
                 List.of(com.cocky.cockyserver.ai.dto.Difficulty.EASY),
                 "동적 프로그래밍", "메모이제이션", List.of(), List.of());
 
-        List<GeneratedProblem> problems = service.generate(req);
+        var outcome = service.generate(req);
+        assertTrue(outcome.complete(), "실패 조합: " + outcome.failures());
+        List<GeneratedProblem> problems = outcome.problems();
         assertFalse(problems.isEmpty());
         assertFalse(problems.get(0).statement().isBlank());
     }

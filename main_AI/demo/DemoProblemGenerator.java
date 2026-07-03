@@ -3,6 +3,8 @@ package com.cocky.cockyserver.ai.demo;
 import com.cocky.cockyserver.ai.dto.Difficulty;
 import com.cocky.cockyserver.ai.dto.ExampleIo;
 import com.cocky.cockyserver.ai.dto.GeneratedProblem;
+import com.cocky.cockyserver.ai.dto.GenerationItem;
+import com.cocky.cockyserver.ai.dto.GenerationOutcome;
 import com.cocky.cockyserver.ai.dto.GenerationRequest;
 import com.cocky.cockyserver.ai.dto.Language;
 import com.cocky.cockyserver.ai.port.ProblemGenerator;
@@ -15,12 +17,15 @@ import java.util.List;
  */
 public class DemoProblemGenerator implements ProblemGenerator {
 
+    private static final int DEMO_ATTEMPTS = 1;
+
     @Override
-    public List<GeneratedProblem> generate(GenerationRequest request) {
-        return request.languages().stream()
+    public GenerationOutcome generate(GenerationRequest request) {
+        List<GenerationItem> items = request.languages().stream()
                 .flatMap(lang -> request.difficulties().stream()
-                        .map(diff -> build(request, lang, diff)))
+                        .map(diff -> GenerationItem.success(build(request, lang, diff), DEMO_ATTEMPTS)))
                 .toList();
+        return new GenerationOutcome(items);
     }
 
     private GeneratedProblem build(GenerationRequest req, Language lang, Difficulty diff) {
