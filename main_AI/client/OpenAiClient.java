@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import java.time.Duration;
 import java.util.List;
@@ -56,12 +57,19 @@ public class OpenAiClient {
             body.put("response_format", Map.of("type", "json_object"));
         }
 
-        JsonNode response = restClient.post()
-                .uri("/chat/completions")
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(body)
-                .retrieve()
-                .body(JsonNode.class);
+        JsonNode response;
+        try {
+            response = restClient.post()
+                    .uri("/chat/completions")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(JsonNode.class);
+        } catch (RestClientException e) {
+            // 401/429/5xx/타임아웃 등 — 호출부(오케스트레이터)가 OpenAiException 하나로 재시도 판단.
+            log.warn("OpenAI 호출 실패(model={}): {}", model, e.getMessage());
+            throw new OpenAiException("OpenAI 호출 실패: " + e.getMessage(), e);
+        }
 
         if (response == null || !response.has("choices") || response.get("choices").isEmpty()) {
             log.warn("OpenAI 응답에 choices 없음");
