@@ -11,6 +11,7 @@ import com.cocky.cockyserver.ai.dto.GenerationRequest;
 import com.cocky.cockyserver.ai.dto.Language;
 import com.cocky.cockyserver.ai.exec.DemoExecutor;
 import com.cocky.cockyserver.ai.port.CodeExecutor;
+import com.cocky.cockyserver.ai.port.GenerationFailedException;
 import com.cocky.cockyserver.ai.port.ProblemGenerator;
 import com.cocky.cockyserver.ai.prompt.PromptTemplates;
 import com.fasterxml.jackson.databind.JsonNode;

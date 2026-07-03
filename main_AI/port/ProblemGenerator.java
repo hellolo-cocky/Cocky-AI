@@ -14,7 +14,7 @@ public interface ProblemGenerator {
      * 요청의 언어×난이도 조합마다 1문제씩 생성(전체 = 9문제/회차).
      * 각 문제는 중복검사·정답검증·난이도확인을 통과한 상태로 반환된다.
      *
-     * @throws com.cocky.cockyserver.ai.service.GenerationFailedException 재시도 소진 시.
+     * @throws GenerationFailedException 재시도 소진 시.
      */
     List<GeneratedProblem> generate(GenerationRequest request);
 }
