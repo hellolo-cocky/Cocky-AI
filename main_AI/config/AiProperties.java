@@ -14,6 +14,36 @@ public record AiProperties(
         Exec exec,
         Generation generation
 ) {
+    private static final String DEFAULT_BASE_URL = "https://api.openai.com/v1";
+    private static final long DEFAULT_OPENAI_TIMEOUT_MS = 60_000;
+    private static final long DEFAULT_EXEC_TIMEOUT_MS = 5_000;
+    private static final int DEFAULT_MAX_RETRIES = 3;
+    private static final double DEFAULT_SIMILARITY_THRESHOLD = 0.80;
+    private static final String DEFAULT_GEN_MODEL = "gpt-5.4-mini";
+    private static final String DEFAULT_NANO_MODEL = "gpt-5.4-nano";
+
+    /**
+     * ai.* 설정이 아예 없는 환경(예: 테스트 전용 application.yml이 main 설정을
+     * 대체하는 경우)에서도 NPE 없이 데모 모드로 뜨도록 기본값을 채운다.
+     */
+    public AiProperties {
+        if (openai == null) {
+            openai = new OpenAi("", DEFAULT_BASE_URL, DEFAULT_OPENAI_TIMEOUT_MS);
+        }
+        if (models == null) {
+            models = new Models(DEFAULT_GEN_MODEL, DEFAULT_NANO_MODEL, DEFAULT_NANO_MODEL,
+                    DEFAULT_GEN_MODEL, DEFAULT_GEN_MODEL);
+        }
+        if (executor == null || executor.isBlank()) {
+            executor = "local";
+        }
+        if (exec == null) {
+            exec = new Exec(DEFAULT_EXEC_TIMEOUT_MS);
+        }
+        if (generation == null) {
+            generation = new Generation(DEFAULT_MAX_RETRIES, DEFAULT_SIMILARITY_THRESHOLD);
+        }
+    }
     public record OpenAi(String apiKey, String baseUrl, long timeoutMs) {
     }
 
