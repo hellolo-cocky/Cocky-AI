@@ -21,6 +21,8 @@ import java.util.List;
 public class InstantFeedbackService implements InstantFeedbackProvider {
 
     private static final BigDecimal MAX_ITEM_SCORE = new BigDecimal("10.00");
+    /** 평가 항목 수 고정(3×10.00=30.00). 초과/미달 응답은 신뢰 불가 — 합계 상한 붕괴 방지. */
+    private static final int REQUIRED_ITEM_COUNT = 3;
 
     private final OpenAiClient openAi;
     private final AiProperties props;
@@ -46,8 +48,9 @@ public class InstantFeedbackService implements InstantFeedbackProvider {
                         score,
                         item.path("comment").asText("")));
             }
-            if (items.isEmpty()) {
-                throw new IllegalStateException("피드백 항목이 비어 있음");
+            if (items.size() != REQUIRED_ITEM_COUNT) {
+                throw new IllegalStateException(
+                        "피드백 항목은 정확히 " + REQUIRED_ITEM_COUNT + "개여야 함: " + items.size());
             }
             return new InstantFeedback(items, root.path("personality").asText(""));
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
