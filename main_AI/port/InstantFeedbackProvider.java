@@ -8,5 +8,9 @@ import com.cocky.cockyserver.ai.dto.Submission;
  */
 public interface InstantFeedbackProvider {
 
+    /**
+     * @throws InstantFeedbackFailedException 모듈 내부 재시도 소진 후 최종 실패 시.
+     *         내부 구현 예외(OpenAiException 등)는 이 포트를 넘지 않는다.
+     */
     InstantFeedback evaluate(Submission submission);
 }

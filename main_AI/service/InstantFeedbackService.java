@@ -5,10 +5,13 @@ import com.cocky.cockyserver.ai.config.AiProperties;
 import com.cocky.cockyserver.ai.dto.FeedbackItem;
 import com.cocky.cockyserver.ai.dto.InstantFeedback;
 import com.cocky.cockyserver.ai.dto.Submission;
+import com.cocky.cockyserver.ai.port.InstantFeedbackFailedException;
 import com.cocky.cockyserver.ai.port.InstantFeedbackProvider;
 import com.cocky.cockyserver.ai.prompt.PromptTemplates;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -19,6 +22,8 @@ import java.util.List;
  * 제출 즉시 피드백. 3항목 각 0.00~10.00, 합 최대 30.00.
  */
 public class InstantFeedbackService implements InstantFeedbackProvider {
+
+    private static final Logger log = LoggerFactory.getLogger(InstantFeedbackService.class);
 
     private static final BigDecimal MAX_ITEM_SCORE = new BigDecimal("10.00");
     /** 평가 항목 수 고정(3×10.00=30.00). 초과/미달 응답은 신뢰 불가 — 합계 상한 붕괴 방지. */
@@ -33,8 +38,30 @@ public class InstantFeedbackService implements InstantFeedbackProvider {
         this.props = props;
     }
 
+    /**
+     * 계약: 재시도(모듈 내부, 생성 경로와 동일 횟수) 소진 시
+     * {@link InstantFeedbackFailedException}만 port 밖으로 나간다.
+     * OpenAiException 등 내부 예외는 여기서 흡수한다.
+     */
     @Override
     public InstantFeedback evaluate(Submission submission) {
+        int maxRetries = props.generation().maxRetries();
+        RuntimeException last = null;
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                return evaluateOnce(submission);
+            } catch (RuntimeException e) {
+                last = e;
+                log.warn("즉시 피드백 시도 {} 실패: {}", attempt, e.getMessage());
+            }
+        }
+        log.error("즉시 피드백 재시도 {}회 소진: {}", maxRetries,
+                last == null ? "알 수 없음" : last.getMessage());
+        throw new InstantFeedbackFailedException(
+                "즉시 피드백 생성 실패(재시도 " + maxRetries + "회 소진)", last);
+    }
+
+    private InstantFeedback evaluateOnce(Submission submission) {
         String json = openAi.chatJson(props.models().instantFeedback(),
                 PromptTemplates.INSTANT_SYSTEM,
                 PromptTemplates.instantUser(submission));
