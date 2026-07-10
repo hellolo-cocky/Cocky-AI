@@ -6,6 +6,7 @@ import com.cocky.cockyserver.ai.config.ExecutorConfig;
 import com.cocky.cockyserver.ai.demo.DemoProblemGenerator;
 import com.cocky.cockyserver.ai.port.ProblemGenerator;
 import com.cocky.cockyserver.ai.service.ProblemGeneratorService;
+import com.cocky.cockyserver.global.config.JacksonConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
@@ -14,12 +15,14 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
- * 키 유무에 따른 데모/실구현 자동 주입 검증(DB 컨텍스트 없이).
+ * 키 유무에 따른 데모/실구현 자동 주입 검증(DB 컨텍스트 없이). {@link JacksonConfig}를 같이 로드하는
+ * 이유: {@code OpenAiClient}가 classic Jackson2 {@code ObjectMapper} 빈을 주입받아
+ * {@code MappingJackson2HttpMessageConverter}를 등록하므로, 그 빈 없이는 실구현 빈 생성 자체가 실패한다.
  */
 class AiWiringTest {
 
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
-            .withUserConfiguration(AiConfig.class, ExecutorConfig.class)
+            .withUserConfiguration(AiConfig.class, ExecutorConfig.class, JacksonConfig.class)
             .withPropertyValues(
                     "ai.executor=demo",
                     "ai.openai.base-url=https://api.openai.com/v1",

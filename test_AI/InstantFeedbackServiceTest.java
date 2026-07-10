@@ -9,6 +9,7 @@ import com.cocky.cockyserver.ai.dto.Language;
 import com.cocky.cockyserver.ai.dto.Submission;
 import com.cocky.cockyserver.ai.port.InstantFeedbackFailedException;
 import com.cocky.cockyserver.ai.service.InstantFeedbackService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -21,9 +22,9 @@ class InstantFeedbackServiceTest {
 
     private static final String VALID_JSON = """
             {"items":[
-              {"category":"정확성","score":"8.50","comment":"좋음"},
-              {"category":"효율성","score":"7.00","comment":"보통"},
-              {"category":"가독성","score":"9.00","comment":"깔끔"}
+              {"category":"시간복잡도 효율","score":"8.50","comment":"좋음"},
+              {"category":"코드 가독성","score":"7.00","comment":"보통"},
+              {"category":"풀이 독창성","score":"9.00","comment":"깔끔"}
             ],"personality":"차분한 분석가"}
             """;
 
@@ -39,7 +40,7 @@ class InstantFeedbackServiceTest {
         private int calls = 0;
 
         ScriptedOpenAiClient(AiProperties props, Object... script) {
-            super(props);
+            super(props, new ObjectMapper());
             this.script = script;
         }
 
@@ -90,7 +91,25 @@ class InstantFeedbackServiceTest {
     @Test
     void invalidItemCountAlsoRetriedAndWrapped() {
         ScriptedOpenAiClient client = new ScriptedOpenAiClient(props,
-                "{\"items\":[{\"category\":\"정확성\",\"score\":\"5\",\"comment\":\"x\"}],\"personality\":\"p\"}");
+                "{\"items\":[{\"category\":\"시간복잡도 효율\",\"score\":\"5\",\"comment\":\"x\"}],\"personality\":\"p\"}");
+        assertThrows(InstantFeedbackFailedException.class,
+                () -> new InstantFeedbackService(client, props).evaluate(submission()));
+        assertEquals(props.generation().maxRetries(), client.calls());
+    }
+
+    @Test
+    void unknownCategoryRetriedAndWrapped() {
+        String json = VALID_JSON.replace("시간복잡도 효율", "정확성");
+        ScriptedOpenAiClient client = new ScriptedOpenAiClient(props, json);
+        assertThrows(InstantFeedbackFailedException.class,
+                () -> new InstantFeedbackService(client, props).evaluate(submission()));
+        assertEquals(props.generation().maxRetries(), client.calls());
+    }
+
+    @Test
+    void duplicateCategoryRetriedAndWrapped() {
+        String json = VALID_JSON.replace("코드 가독성", "시간복잡도 효율");
+        ScriptedOpenAiClient client = new ScriptedOpenAiClient(props, json);
         assertThrows(InstantFeedbackFailedException.class,
                 () -> new InstantFeedbackService(client, props).evaluate(submission()));
         assertEquals(props.generation().maxRetries(), client.calls());

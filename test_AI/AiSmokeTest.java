@@ -8,6 +8,7 @@ import com.cocky.cockyserver.ai.exec.LocalProcessExecutor;
 import com.cocky.cockyserver.ai.service.NicknameService;
 import com.cocky.cockyserver.ai.service.ProblemGeneratorService;
 import com.cocky.cockyserver.ai.service.SimilarityChecker;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
@@ -38,7 +39,7 @@ class AiSmokeTest {
     void generatesOneRealProblem() {
         AiProperties props = props();
         var service = new ProblemGeneratorService(
-                new OpenAiClient(props), new LocalProcessExecutor(props), new SimilarityChecker(), props);
+                new OpenAiClient(props, new ObjectMapper()), new LocalProcessExecutor(props), new SimilarityChecker(), props);
 
         var req = new GenerationRequest(
                 List.of(com.cocky.cockyserver.ai.dto.Language.PYTHON),
@@ -55,7 +56,7 @@ class AiSmokeTest {
     @Test
     void generatesRealNickname() {
         AiProperties props = props();
-        String nickname = new NicknameService(new OpenAiClient(props), props).generate();
+        String nickname = new NicknameService(new OpenAiClient(props, new ObjectMapper()), props).generate();
         assertFalse(nickname.isBlank());
     }
 

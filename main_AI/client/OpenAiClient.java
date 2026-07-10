@@ -2,10 +2,12 @@ package com.cocky.cockyserver.ai.client;
 
 import com.cocky.cockyserver.ai.config.AiProperties;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -24,15 +26,27 @@ public class OpenAiClient {
 
     private final RestClient restClient;
 
-    public OpenAiClient(AiProperties props) {
+    /**
+     * classic Jackson2 {@code ObjectMapper}({@link com.cocky.cockyserver.global.config.JacksonConfig})를
+     * 받아 {@link MappingJackson2HttpMessageConverter}로 명시 등록한다. Boot 4.1 기본 컨버터 체인은
+     * Jackson 3 기반이라 classic {@link JsonNode} 응답을 파싱하지 못한다
+     * ({@code InvalidDefinitionException: Type definition error} 발생) — {@code DataGsmOauthClient}와
+     * 동일한 패턴.
+     */
+    public OpenAiClient(AiProperties props, ObjectMapper objectMapper) {
         AiProperties.OpenAi cfg = props.openai();
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofMillis(cfg.timeoutMs()));
         factory.setReadTimeout(Duration.ofMillis(cfg.timeoutMs()));
+        MappingJackson2HttpMessageConverter converter = new MappingJackson2HttpMessageConverter(objectMapper);
         this.restClient = RestClient.builder()
                 .baseUrl(cfg.baseUrl())
                 .defaultHeader("Authorization", "Bearer " + cfg.apiKey())
                 .requestFactory(factory)
+                .messageConverters(converters -> {
+                    converters.clear();
+                    converters.add(converter);
+                })
                 .build();
     }
 

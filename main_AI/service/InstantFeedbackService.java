@@ -2,6 +2,7 @@ package com.cocky.cockyserver.ai.service;
 
 import com.cocky.cockyserver.ai.client.OpenAiClient;
 import com.cocky.cockyserver.ai.config.AiProperties;
+import com.cocky.cockyserver.ai.dto.FeedbackCategory;
 import com.cocky.cockyserver.ai.dto.FeedbackItem;
 import com.cocky.cockyserver.ai.dto.InstantFeedback;
 import com.cocky.cockyserver.ai.dto.Submission;
@@ -71,13 +72,16 @@ public class InstantFeedbackService implements InstantFeedbackProvider {
             for (JsonNode item : root.path("items")) {
                 BigDecimal score = clampScore(parseScore(item.path("score")));
                 items.add(new FeedbackItem(
-                        item.path("category").asText(""),
+                        FeedbackCategory.fromLabel(item.path("category").asText("")),
                         score,
                         item.path("comment").asText("")));
             }
             if (items.size() != REQUIRED_ITEM_COUNT) {
                 throw new IllegalStateException(
                         "피드백 항목은 정확히 " + REQUIRED_ITEM_COUNT + "개여야 함: " + items.size());
+            }
+            if (items.stream().map(FeedbackItem::category).distinct().count() != REQUIRED_ITEM_COUNT) {
+                throw new IllegalStateException("피드백 category 중복: " + items);
             }
             return new InstantFeedback(items, root.path("personality").asText(""));
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {

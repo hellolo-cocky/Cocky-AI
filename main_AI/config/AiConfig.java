@@ -15,6 +15,7 @@ import com.cocky.cockyserver.ai.service.NicknameService;
 import com.cocky.cockyserver.ai.service.PeriodFeedbackService;
 import com.cocky.cockyserver.ai.service.ProblemGeneratorService;
 import com.cocky.cockyserver.ai.service.SimilarityChecker;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
@@ -47,9 +48,9 @@ public class AiConfig {
 
     @Bean
     @ConditionalOnExpression(REAL)
-    public OpenAiClient openAiClient(AiProperties props) {
+    public OpenAiClient openAiClient(AiProperties props, ObjectMapper objectMapper) {
         log.info("AI 모듈: 실호출 모드(OpenAI)");
-        return new OpenAiClient(props);
+        return new OpenAiClient(props, objectMapper);
     }
 
     @Bean

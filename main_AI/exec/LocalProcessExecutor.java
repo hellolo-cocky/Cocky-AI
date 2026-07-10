@@ -39,9 +39,19 @@ public class LocalProcessExecutor implements CodeExecutor {
     @Override
     public boolean available() {
         // 하나라도 실행 가능하면 로컬 실행기를 채택한다(언어별 부재는 run 시 compileError로 반환).
-        return commandWorks(pythonCmd(), "--version")
-                || commandWorks("java", "-version")
-                || commandWorks("gcc", "--version");
+        boolean python = commandWorks(pythonCmd(), "--version");
+        boolean java = commandWorks("java", "-version");
+        boolean gcc = commandWorks("gcc", "--version");
+        if (!python) {
+            log.warn("{} 미탐지 — PYTHON 조합의 정답 검증이 전부 실패한다", pythonCmd());
+        }
+        if (!java) {
+            log.warn("java 미탐지 — JAVA 조합의 정답 검증이 전부 실패한다");
+        }
+        if (!gcc) {
+            log.warn("gcc 미탐지 — C 조합의 정답 검증이 전부 실패한다");
+        }
+        return python || java || gcc;
     }
 
     @Override
